@@ -121,6 +121,7 @@ struct _GstPylon {
   std::string requested_device_user_name;
   std::string requested_device_serial_number;
   gint requested_device_index;
+  gint requested_caps_ignore;
 };
 
 static const std::vector<GstStPixelFormats> gst_structure_formats = {
@@ -184,7 +185,7 @@ static void gst_pylon_apply_set(GstPylon *self, std::string &set) {
 
 GstPylon *gst_pylon_new(GstElement *gstpylonsrc, const gchar *device_user_name,
                         const gchar *device_serial_number, gint device_index,
-                        gboolean enable_correction, GError **err) {
+                        gboolean enable_correction, gint caps_ignore, GError **err) {
   GstPylon *self = new GstPylon;
 
   self->gstpylonsrc = gstpylonsrc;
@@ -196,6 +197,7 @@ GstPylon *gst_pylon_new(GstElement *gstpylonsrc, const gchar *device_user_name,
   self->requested_device_user_name = device_user_name ? device_user_name : "";
   self->requested_device_serial_number =
       device_serial_number ? device_serial_number : "";
+  self->requested_caps_ignore = caps_ignore;
 
   try {
     Pylon::CTlFactory &factory = Pylon::CTlFactory::GetInstance();
@@ -791,13 +793,17 @@ gboolean gst_pylon_set_configuration(GstPylon *self, const GstCaps *conf,
           __FILE__, __LINE__);
     }
 
-    Pylon::CIntegerParameter width(nodemap, "Width");
-    width.SetValue(gst_width, Pylon::IntegerValueCorrection_None);
-    GST_INFO("Set Feature Width: %d", gst_width);
+    if (!self->requested_caps_ignore) {
+      Pylon::CIntegerParameter width(nodemap, "Width");
+      width.SetValue(gst_width, Pylon::IntegerValueCorrection_None);
+      GST_INFO("Set Feature Width: %d", gst_width);
+    }
 
-    Pylon::CIntegerParameter height(nodemap, "Height");
-    height.SetValue(gst_height, Pylon::IntegerValueCorrection_None);
-    GST_INFO("Set Feature Height: %d", gst_height);
+    if (!self->requested_caps_ignore) {
+      Pylon::CIntegerParameter height(nodemap, "Height");
+      height.SetValue(gst_height, Pylon::IntegerValueCorrection_None);
+      GST_INFO("Set Feature Height: %d", gst_height);
+    }
 
     Pylon::CBooleanParameter framerate_enable(nodemap,
                                               "AcquisitionFrameRateEnable");

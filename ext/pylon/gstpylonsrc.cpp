@@ -64,6 +64,7 @@ struct _GstPylonSrc {
   gchar *device_user_name;
   gchar *device_serial_number;
   gint device_index;
+  gint caps_ignore;
   gchar *user_set;
   gchar *pfs_location;
   gboolean enable_correction;
@@ -100,6 +101,7 @@ enum {
   PROP_DEVICE_USER_NAME,
   PROP_DEVICE_SERIAL_NUMBER,
   PROP_DEVICE_INDEX,
+  PROP_CAPS_IGNORE,
   PROP_USER_SET,
   PROP_PFS_LOCATION,
   PROP_ENABLE_CORRECTION,
@@ -113,6 +115,7 @@ enum {
 #define PROP_DEVICE_INDEX_DEFAULT -1
 #define PROP_DEVICE_INDEX_MIN -1
 #define PROP_DEVICE_INDEX_MAX G_MAXINT32
+#define PROP_CAPS_IGNORE_DEFAULT TRUE
 #define PROP_USER_SET_DEFAULT NULL
 #define PROP_PFS_LOCATION_DEFAULT NULL
 #define PROP_ENABLE_CORRECTION_DEFAULT TRUE
@@ -223,6 +226,15 @@ static void gst_pylon_src_class_init(GstPylonSrcClass *klass) {
           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                    GST_PARAM_MUTABLE_READY)));
   g_object_class_install_property(
+    gobject_class, PROP_CAPS_IGNORE,
+    g_param_spec_boolean(
+        "caps-ignore", "Ignore caps",
+        "Ignore the caps set on the source pad and use the properties set on the "
+        "device instead.",
+        PROP_CAPS_IGNORE_DEFAULT,
+        static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                 GST_PARAM_MUTABLE_READY)));
+  g_object_class_install_property(
       gobject_class, PROP_USER_SET,
       g_param_spec_string(
           "user-set", "Device user configuration set",
@@ -332,6 +344,7 @@ static void gst_pylon_src_init(GstPylonSrc *self) {
   self->device_user_name = PROP_DEVICE_USER_NAME_DEFAULT;
   self->device_serial_number = PROP_DEVICE_SERIAL_NUMBER_DEFAULT;
   self->device_index = PROP_DEVICE_INDEX_DEFAULT;
+  self->caps_ignore = PROP_CAPS_IGNORE_DEFAULT;
   self->user_set = PROP_USER_SET_DEFAULT;
   self->pfs_location = PROP_PFS_LOCATION_DEFAULT;
   self->enable_correction = PROP_ENABLE_CORRECTION_DEFAULT;
@@ -363,6 +376,9 @@ static void gst_pylon_src_set_property(GObject *object, guint property_id,
       break;
     case PROP_DEVICE_INDEX:
       self->device_index = g_value_get_int(value);
+      break;
+    case PROP_CAPS_IGNORE:
+      self->caps_ignore = g_value_get_boolean(value);
       break;
     case PROP_USER_SET:
       g_free(self->user_set);
@@ -404,6 +420,9 @@ static void gst_pylon_src_get_property(GObject *object, guint property_id,
       break;
     case PROP_DEVICE_INDEX:
       g_value_set_int(value, self->device_index);
+      break;
+    case PROP_CAPS_IGNORE:
+      g_value_set_boolean(value, self->caps_ignore);
       break;
     case PROP_USER_SET:
       g_value_set_string(value, self->user_set);
@@ -689,7 +708,7 @@ static gboolean gst_pylon_src_start(GstBaseSrc *src) {
 
   self->pylon = gst_pylon_new(GST_ELEMENT_CAST(self), self->device_user_name,
                               self->device_serial_number, self->device_index,
-                              self->enable_correction, &error);
+                              self->enable_correction, self->caps_ignore, &error);
   GST_OBJECT_UNLOCK(self);
 
   if (error) {
